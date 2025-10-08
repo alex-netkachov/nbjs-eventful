@@ -19,6 +19,7 @@
   "author": "\"Alex Netkachov\" <alex.netkachov@gmail.com>",
   "type": "module",
   "main": "eventful.js",
+  "types": "eventful.d.ts",
   "directories": {
     "doc": "docs"
   },

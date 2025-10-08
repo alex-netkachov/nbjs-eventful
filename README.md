@@ -18,6 +18,19 @@ obj.on('greet', msg => console.log(`${msg}, ${obj.name}!`));
 obj.emit('greet', 'Hello'); // Logs: "Hello, Alice!"
 ```
 
+### With TypeScript
+
+```ts
+type MyEvents = {
+  test: [id: number];
+  ready: [];
+};
+
+const obj = eventful<object, MyEvents>({});
+obj.on('test', id => { /* id is number */ });
+obj.emit('ready');
+```
+
 ## API
 
 ### eventful([target], [options])
