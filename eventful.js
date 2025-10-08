@@ -140,14 +140,15 @@ const eventful =
      */
     const emit =
       (event, ...args) => {
+        const set =
+          map.get(event);
+
         (trace || eventful.trace)(
           'emit',
+          set || [],
           { object,
             event,
             args });
-  
-        const set =
-          map.get(event);
 
         if (!set || set.size === 0)
           return;
@@ -173,15 +174,16 @@ const eventful =
      */
     const emitAsync =
       async (event, ...args) => {
+        const set =
+          map.get(event);
+
         (trace || eventful.trace)(
-          'emitAsync',
+          `emitAsync`,
+          set || [],
           { object,
             event,
             args });
-  
-        const set =
-          map.get(event);
-  
+          
         if (!set || set.size === 0)
           return;
   

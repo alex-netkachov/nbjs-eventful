@@ -1,6 +1,6 @@
 {
   "name": "nbjs-eventful",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lightweight event helper adding on/off/emit to any object.",
   "keywords": [
     "events",
@@ -23,7 +23,7 @@
   "directories": {
     "doc": "docs"
   },
-"scripts": {
+  "scripts": {
     "test": "node --test",
     "test:watch": "node --watch --test",
     "coverage": "NODE_V8_COVERAGE=.coverage node --test && node -e \"console.log('Coverage in .coverage (use c8/istanbul if you want reports)')\""
