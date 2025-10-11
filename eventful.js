@@ -1,34 +1,59 @@
 /**
+ * @typedef {Object} ErrorContext
+ * @property {Object|Function} object The object emitting the event.
+ * @property {string|symbol} event The event name.
+ * @property {Function} listener The listener function that caused the error.
+ */
+
+/**
+ * @typedef {Object} EventfulOptions
+ * @property {boolean} [strict] If true, exceptions from listeners are propagated.
+ * @property {(object: {Object|Function}, name: string, payload: any) => void} [trace] Optional tracing hook.
+ * @property {(err: unknown, context: ErrorContext}) => void} [error] Optional error hook.
+ */
+
+/**
  * A mixin that adds event emitter capabilities to an object.
+ *
+ * The method returns the original object enhanced with the event
+ * subscribing and emitting methods.
  * 
- * @param {Object|Function}* object The object to enhance.
- * @param {Object}* options The options to configure the event emitter.
+ * If no object is provided, a new empty object is created and enhanced.
+ * 
+ * The options can configure the behavior of the event emitter.
+ * 
+ * @param {Object|Function} object The object to enhance.
+ * @param {EventfulOptions} options The options to configure the event emitter.
  * @returns {Object|Function} The enhanced object.
+ * 
+ * @throws {TypeError} If the first argument is not an object or function.
  */
 const eventful =
-  (object, options) => {
-    if (typeof object !== 'undefined'
-        && (object == null
-            || (typeof object !== 'object'
-                && typeof object !== 'function')))
+  (object = Object.create(null),
+   options = { }) =>
+  {
+    const emptySet =
+      new Set();
+
+    if (!isObject(object)
+        && !isFunction(object))
     {
       throw new TypeError(
-        'eventful() expects an object');
+        'Expect an object or a function.');
     }
-  
-    if (typeof object === 'undefined')
-      object = Object.create(null);
   
     const { strict = false,
             trace = null,
             error = null } =
-      options
-      || { };
-  
+      options;
+
+    const globalOptions =
+      eventful.options;
+
     for (const method of [ 'on', 'once', 'off', 'emit', 'has' ]) {
       if (method in object) {
         throw new Error(
-          `object already has method "${method}"`);
+          `Method "${method}" already exists.`);
       }
     }
   
@@ -37,54 +62,58 @@ const eventful =
       new Map();
   
     const add =
-      (event, fn) => {
-        let set =
+      (event, listener) => {
+        let listeners =
           map.get(event);
   
-        if (!set) {
-          set = new Set();
-          map.set(event, set);
+        if (!listeners) {
+          listeners = new Set();
+          map.set(event, listeners);
         }
   
-        set.add(fn);
+        listeners.add(listener);
       };
   
     const remove =
-      (event, fn) => {
-        const set =
+      (event, listener) => {
+        const listeners =
           map.get(event);
   
-        if (!set)
+        if (!listeners)
           return false;
   
-        const had =
-          set.delete(fn);
+        const deleted =
+          listeners.delete(listener);
   
-        if (set.size === 0)
+        if (listeners.size === 0)
           map.delete(event);
   
-        return had;
+        return deleted;
       };
+
+    const getListeners =
+      event =>
+        map.get(event)
+        || emptySet;
   
     /**
      * Subscribe to an event.
      *
-     * @type {(event: string|symbol, fn: Function) => () => boolean}
+     * @type {(event: string|symbol, listener: Function) => () => boolean}
      */
     const on =
-      (event, fn) => {
-        if (typeof fn !== 'function') {
-          throw new TypeError(
-            'listener must be a function');
-        }
+      (event, listener) => {
+        functionTypeGuard(listener);
   
-        (trace || eventful.trace)(
+        (trace || globalOptions.trace)(
+          object,
           'on',
-          { object,
-            event,
-            fn });
+          { event,
+            listener });
   
-        add(event, fn);
+        add(
+          event,
+          listener);
   
         let active = true;
   
@@ -96,28 +125,25 @@ const eventful =
   
           return remove(
             event,
-            fn);
+            listener);
         };
       };
   
     /**
      * Subscribe to an event for a single occurrence.
      *
-     * @type {(event: string|symbol, fn: Function) => () => boolean}
+     * @type {(event: string|symbol, listener: Function) => () => boolean}
      */
     const once =
-      (event, fn) => {
-        if (typeof fn !== 'function') {
-          throw new TypeError(
-            'listener must be a function');
-        }
+      (event, listener) => {
+        functionTypeGuard(listener);
   
         const off =
           on(
             event,
             (...args) => {
               off();
-              fn(...args);
+              listener(...args);
             });
   
         return off;
@@ -128,7 +154,7 @@ const eventful =
     const has =
       event =>
         map.get(event)?.size > 0
-          || false;
+        || false;
   
     /**
      * Emit an event synchronously.
@@ -140,24 +166,32 @@ const eventful =
      */
     const emit =
       (event, ...args) => {
-        const set =
-          map.get(event);
+        const listeners =
+          getListeners(event);
 
-        (trace || eventful.trace)(
+        (trace || globalOptions.trace)(
+          object,
           'emit',
-          set || [],
-          { object,
+          { listeners,
             event,
             args });
 
-        if (!set || set.size === 0)
+        if (listeners.size === 0)
           return;
           
-        for (const fn of set) {
+        for (const listener of listeners) {
           try {
-            fn(...args);
+            listener(...args);
           } catch (err) {
-            (error || eventful.error)(err);
+            const context =
+              { object,
+                event,
+                listener };
+
+            (error || globalOptions.error)(
+              err,
+              context);
+
             if (strict)
               throw err;
           }
@@ -174,34 +208,41 @@ const eventful =
      */
     const emitAsync =
       async (event, ...args) => {
-        const set =
-          map.get(event);
+        const listeners =
+          getListeners(event);
 
-        (trace || eventful.trace)(
+        (trace || globalOptions.trace)(
+          object,
           `emitAsync`,
-          set || [],
-          { object,
+          { listeners,
             event,
             args });
           
-        if (!set || set.size === 0)
+        if (listeners.size === 0)
           return;
   
         const calls =
-          Array.from(set)
-            .map(fn => {
-              return new Promise(
+          Array.from(listeners)
+            .map(listener =>
+              new Promise(
                 (resolve, reject) => {
                   try {
-                    Promise.resolve(fn(...args))
+                    Promise.resolve(listener(...args))
                       .then(resolve, reject);
                   } catch (err) {
-                    (error || eventful.error)(err);
+                    const context =
+                      { object,
+                        event,
+                        listener };
+
+                    (error || globalOptions.error)(
+                      err,
+                      context);
+
                     reject(err);
                   }
-                });
-            });
-  
+                }));
+
         if (strict)
           await Promise.all(calls);
         else
@@ -212,20 +253,22 @@ const eventful =
      * Unsubscribe from an event.
      *
      * @param {string} event The event name.
-     * @param {Function} handler The handling function.
+     * @param {Function} listener The handling function.
      * @returns {boolean} True if unsubscribed, false if not found.
      */
     const off =
-      (event, handler) => {
-        (trace || eventful.trace)(
+      (event, listener) => {
+        functionTypeGuard(listener);
+
+        (trace || eventful.options.trace)(
+          object,
           'off',
-          { object,
-            event,
-            handler });
+          { event,
+            listener });
   
         return remove(
           event,
-          handler);
+          listener);
       };
   
     const attributes =
@@ -245,7 +288,25 @@ const eventful =
     return object;
   };
 
-eventful.trace = () => { };
-eventful.error = err => console.error(err);
+eventful.options = {
+  trace: () => { },
+  error: err => console.error(err)
+};
+
+function isFunction(value) {
+  return typeof value === 'function';
+}
+
+function isObject(value) {
+  return value !== null
+    && typeof value === 'object';
+}
+
+function functionTypeGuard(value) {
+  if (!isFunction(value)) {
+    throw new TypeError(
+      'Expect a function.');
+  }
+}
 
 export { eventful };

@@ -3,6 +3,34 @@ import assert from 'node:assert/strict';
 import { eventful } from '../eventful.js';
 
 test(
+  'eventful creates an empty event emitter object',
+  () => {
+    const obj =
+      eventful();
+
+    assert.ok(obj);
+    assert.equal(typeof obj.on, 'function');
+    assert.equal(typeof obj.off, 'function');
+    assert.equal(typeof obj.emit, 'function');
+    assert.equal(typeof obj.has, 'function');
+  });
+
+test(
+  'eventful throws when an object has one of the event emitter methods',
+  () => {
+    assert.throws(
+      () => eventful({ on: () => {} }));
+    assert.throws(
+      () => eventful({ once: () => {} }));
+    assert.throws(
+      () => eventful({ off: () => {} }));
+    assert.throws(
+      () => eventful({ emit: () => {} }));
+    assert.throws(
+      () => eventful({ has: () => {} }));
+  });
+
+test(
   'exceptions in listeners are suppressed by default',
   async () => {
     const obj =
@@ -15,7 +43,7 @@ test(
       () => { throw new Error('test error'); });
 
     await assert.doesNotReject(
-      () => obj.emit('test'));
+      () => obj.emitAsync('test'));
   });
 
 test(
@@ -32,7 +60,7 @@ test(
       () => { throw new Error('test error'); });
 
     await assert.rejects(
-      () => obj.emit('test'));
+      () => obj.emitAsync('test'));
   });
 
 test(
@@ -48,7 +76,7 @@ test(
       async () => { throw new Error('async fail'); });
 
     await assert.doesNotReject(
-      () => obj.emit('test'));
+      () => obj.emitAsync('test'));
   });
 
 test(
@@ -74,7 +102,7 @@ test(
       () => { ran += 1; });
 
     await assert.doesNotReject(
-      () => obj.emit('test'));
+      () => obj.emitAsync('test'));
 
     assert.equal(ran, 2);
   });  

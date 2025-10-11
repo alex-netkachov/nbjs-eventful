@@ -4,11 +4,15 @@
 
 Lightweight event helper adding on/off/emit to any object.
 
-## Usage
+## Installation
 
 ```bash
 npm install nbjs-eventful
 ```
+
+## Usage
+
+### Basic Example
 
 ```js
 import eventful from 'nbjs-eventful';
@@ -29,6 +33,57 @@ type MyEvents = {
 const obj = eventful<object, MyEvents>({});
 obj.on('test', id => { /* id is number */ });
 obj.emit('ready');
+```
+
+### Advanced Options
+
+Trace event invocations to console:
+
+```js
+const obj =
+  eventful(
+    { },
+    { trace: (object, event, ...args) =>
+        console.log(
+          `Event: ${event}`,
+          ...args) });
+```
+
+Custom error handler for listener errors:
+
+```js
+const obj =
+  eventful(
+    { },
+    { error: (object, event, listener, err) =>
+        console.error(
+          `Error in listener for event "${event}":`,
+          err) });
+```
+
+Strict mode to propagate errors from listeners:
+
+```js
+const obj =
+  eventful(
+    { },
+    { strict: true });
+```
+
+Change the error handler or trace function globally:
+
+```js
+eventful.options.trace =
+  (event, ...args) =>
+    console.log(
+      `Event: ${event}`,
+      ...args);
+
+eventful.options.error =
+  (err, event) =>
+    console.error(
+      `Error in listener for event "${event}":`,
+      err);
 ```
 
 ## API
