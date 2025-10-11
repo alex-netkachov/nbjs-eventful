@@ -18,16 +18,10 @@ test(
 test(
   'eventful throws when an object has one of the event emitter methods',
   () => {
-    assert.throws(
-      () => eventful({ on: () => {} }));
-    assert.throws(
-      () => eventful({ once: () => {} }));
-    assert.throws(
-      () => eventful({ off: () => {} }));
-    assert.throws(
-      () => eventful({ emit: () => {} }));
-    assert.throws(
-      () => eventful({ has: () => {} }));
+    for (const method of ['on', 'once', 'off', 'emit', 'has']) {
+      assert.throws(
+        () => eventful({ [method]: () => { } }));
+    }
   });
 
 test(
